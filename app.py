@@ -23,13 +23,10 @@ app = FastAPI(title="Wastewater GIS API v2")
 # origin (and optionally other allowed origins) here. We still permit the
 # local dev server by default so you can continue developing.
 # Example render frontend URL: "https://your-app-name.onrender.com".
+allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        # replace with your actual Render frontend URL below:
-        "https://your-frontend.onrender.com",
-        "http://localhost:5173",                    # local dev server
-    ],
+    allow_origins=allowed,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,15 +35,18 @@ app.add_middleware(
 # -------------------------------
 # Database connection (Render DB)
 # -------------------------------
-DB_URL = "postgresql://blue_whsc_user:UyXWzfhOFyMxmUckWi2CQWYWS3DQSDfe@dpg-d6a0v8o6fj8s73crhp6g-a.oregon-postgres.render.com:5432/blue_whsc"
+# Read the database URL from the environment (set DATABASE_URL on render).
+# Fallback to a local SQLite file for development.
+DB_URL = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
 engine = create_engine(DB_URL)
 
 # -------------------------------
 # JWT Auth Setup
 # -------------------------------
-SECRET_KEY = "replace_with_a_secure_random_key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 120
+# Read secrets from environment; provide safe defaults for local dev only.
+SECRET_KEY = os.getenv("SECRET_KEY", "replace_with_a_secure_random_key")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
