@@ -17,11 +17,19 @@ import os
 app = FastAPI(title="Wastewater GIS API v2")
 
 # -------------------------------
-# CORS Middleware for InfinityFree Frontend
+# CORS Middleware for frontend (production & development)
 # -------------------------------
+# When you deploy both frontend and backend to Render, set the frontend
+# origin (and optionally other allowed origins) here. We still permit the
+# local dev server by default so you can continue developing.
+# Example render frontend URL: "https://your-app-name.onrender.com".
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://portfolio23.infinityfreeapp.com"],  # InfinityFree frontend URL
+    allow_origins=[
+        # replace with your actual Render frontend URL below:
+        "https://your-frontend.onrender.com",
+        "http://localhost:5173",                    # local dev server
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
