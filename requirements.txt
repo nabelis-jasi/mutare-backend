@@ -1,15 +1,24 @@
-fastapi>=0.115.0
-pydantic>=2.0.0
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-pandas
-geopandas
-shapely
-openlocationcode
-geopy
-python-dotenv
-passlib[bcrypt]
-python-jose[cryptography]
-requests
-python-multipart
+import os
+import uuid
+import logging
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any
+
+from fastapi import FastAPI, Query, HTTPException, Depends, UploadFile, File, status, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy import create_engine, text, inspect
+from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import geopandas as gpd
+import pandas as pd
+from shapely.geometry import Point, LineString, mapping
+from shapely import wkb, wkt
+from openlocationcode import openlocationcode as olc
+from geopy.geocoders import Nominatim
+from geopy.extra.rate_limiter import RateLimiter
+import requests
+import json
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+from pydantic import BaseModel   # <-- add this
