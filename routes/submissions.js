@@ -10,7 +10,7 @@ router.get('/', auth, async (req, res) => {
   const { role, id } = req.user;
   let query = 'SELECT * FROM form_submissions';
   const params = [];
-  if (role === 'field-collector') {
+  if (role !== 'engineer') {
     query += ' WHERE collector_id = $1';
     params.push(id);
   }
@@ -19,31 +19,32 @@ router.get('/', auth, async (req, res) => {
   res.json(result.rows);
 });
 
-// Submit a form (collector)
+// Submit a form (collector only)
 router.post('/', auth, allowRoles('field-collector'), async (req, res) => {
   const { form_id, data, location } = req.body;
-  let locExpr = null;
-  const values = [form_id, req.user.id, data];
+  let geomWKB = null;
   if (location && location.lat && location.lng) {
-    locExpr = `ST_SetSRID(ST_MakePoint($1, $2), 4326)`;
-    values.push(location.lng, location.lat);
-  } else {
-    locExpr = `NULL`;
+    // location: { lat, lng }
+    geomWKB = `ST_SetSRID(ST_MakePoint(${location.lng}, ${location.lat}), 4326)`;
   }
-  // Build dynamic query
-  let query = `INSERT INTO form_submissions (form_id, collector_id, data, location) VALUES ($1, $2, $3, ${locExpr}) RETURNING *`;
-  const result = await pool.query(query, values);
-  res.status(201).json(result.rows[0]);
+  const result = await pool.query(
+    `INSERT INTO form_submissions (form_id, collector_id, data, location, status)
+     VALUES ($1, $2, $3, ${geomWKB ? geomWKB : 'NULL'}, 'pending')
+     RETURNING id`,
+    [form_id, req.user.id, data]
+  );
+  res.status(201).json({ id: result.rows[0].id, status: 'pending' });
 });
 
-// Approve submission (engineer) – could also update main tables
-router.put('/:id/approve', auth, allowRoles('engineer'), async (req, res) => {
-  const { id } = req.params;
-  const result = await pool.query(
-    `UPDATE form_submissions SET status = 'approved' WHERE id = $1 RETURNING *`,
-    [id]
-  );
-  res.json(result.rows[0]);
+// Update submission status (engineer only)
+router.put('/:sub_id', auth, allowRoles('engineer'), async (req, res) => {
+  const { sub_id } = req.params;
+  const { status } = req.body;
+  if (!['approved', 'rejected', 'cleaned'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+  await pool.query('UPDATE form_submissions SET status = $1 WHERE id = $2', [status, sub_id]);
+  res.json({ message: 'Status updated' });
 });
 
 module.exports = router;
