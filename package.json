@@ -18,7 +18,7 @@
     "adm-zip": "^0.5.10",
     "shpjs": "^4.0.4",
     "axios": "^1.6.2",
-    "openlocationcode": "^1.0.4"
+    "open-location-code": "^1.0.4"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
