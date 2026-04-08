@@ -15,52 +15,55 @@ router.get('/', auth, async (req, res) => {
   res.json(result.rows);
 });
 
-// Create a form (engineer)
+// Create a form (engineer only)
 router.post('/', auth, allowRoles('engineer'), async (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, is_active = true } = req.body;
   const result = await pool.query(
-    `INSERT INTO forms (title, description, created_by) VALUES ($1, $2, $3) RETURNING *`,
-    [title, description, req.user.id]
+    `INSERT INTO forms (title, description, created_by, is_active)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id`,
+    [title, description, req.user.id, is_active]
   );
-  res.status(201).json(result.rows[0]);
+  res.status(201).json({ id: result.rows[0].id });
 });
 
-// Update form
-router.put('/:id', auth, allowRoles('engineer'), async (req, res) => {
-  const { id } = req.params;
+// Update form (engineer only)
+router.put('/:form_id', auth, allowRoles('engineer'), async (req, res) => {
+  const { form_id } = req.params;
   const { title, description, is_active } = req.body;
-  const result = await pool.query(
-    `UPDATE forms SET title = $1, description = $2, is_active = $3 WHERE id = $4 RETURNING *`,
-    [title, description, is_active, id]
+  await pool.query(
+    `UPDATE forms SET title = $1, description = $2, is_active = $3 WHERE id = $4`,
+    [title, description, is_active, form_id]
   );
-  res.json(result.rows[0]);
+  res.json({ message: 'Updated' });
 });
 
 // Get fields for a form
-router.get('/:id/fields', auth, async (req, res) => {
-  const { id } = req.params;
+router.get('/:form_id/fields', auth, async (req, res) => {
+  const { form_id } = req.params;
   const result = await pool.query(
     `SELECT * FROM form_fields WHERE form_id = $1 ORDER BY order_index`,
-    [id]
+    [form_id]
   );
   res.json(result.rows);
 });
 
-// Add/update fields (engineer)
-router.post('/:id/fields', auth, allowRoles('engineer'), async (req, res) => {
-  const { id: form_id } = req.params;
-  const { fields } = req.body; // fields is an array of field objects
-  // Delete existing fields and re-insert
+// Save fields for a form (engineer only – replaces all fields)
+router.post('/:form_id/fields', auth, allowRoles('engineer'), async (req, res) => {
+  const { form_id } = req.params;
+  const fields = req.body; // array of { label, field_type, options, required }
+  // Delete existing fields
   await pool.query('DELETE FROM form_fields WHERE form_id = $1', [form_id]);
+  // Insert new fields with order
   for (let i = 0; i < fields.length; i++) {
-    const { label, field_type, options, required } = fields[i];
+    const f = fields[i];
     await pool.query(
       `INSERT INTO form_fields (form_id, label, field_type, options, required, order_index)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [form_id, label, field_type, options || null, required || false, i]
+      [form_id, f.label, f.field_type, f.options || null, f.required || false, i]
     );
   }
-  res.status(200).json({ message: 'Fields saved' });
+  res.json({ message: `Saved ${fields.length} fields` });
 });
 
 module.exports = router;
