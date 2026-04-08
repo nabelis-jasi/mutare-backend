@@ -5,62 +5,72 @@ const shp = require('shpjs');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const allowRoles = require('../middleware/roles');
+const OpenLocationCode = require('openlocationcode');
+const fs = require('fs');
+const path = require('path');
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
 router.post('/', auth, allowRoles('engineer'), upload.single('file'), async (req, res) => {
+  const file = req.file;
+  const { project_id, layer_type } = req.body; // layer_type: 'manhole' or 'pipeline'
+  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+
+  let geojson;
   try {
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'No file uploaded' });
-    let geojson;
     if (file.originalname.endsWith('.zip')) {
       const zip = new AdmZip(file.path);
       const entries = zip.getEntries();
-      const shpEntry = entries.find(e => e.entryName.endsWith('.shp'));
+      const shpEntry = entries.find(e => e.entryName.toLowerCase().endsWith('.shp'));
       if (!shpEntry) throw new Error('No .shp file in zip');
       const shpBuffer = shpEntry.getData();
       geojson = await shp(shpBuffer);
     } else if (file.originalname.endsWith('.shp')) {
-      const fs = require('fs');
-      const buffer = fs.readFileSync(file.path);
-      geojson = await shp(buffer);
+      const shpBuffer = fs.readFileSync(file.path);
+      geojson = await shp(shpBuffer);
     } else {
-      return res.status(400).json({ error: 'Only .shp or .zip files allowed' });
+      throw new Error('Only .zip or .shp files allowed');
     }
-    // geojson is a FeatureCollection
-    const features = geojson.features;
-    const project_id = req.body.project_id || null;
-    // Determine layer type (manhole or pipeline) – you might pass a parameter
-    const layerType = req.body.layer_type; // 'manhole' or 'pipeline'
-    const table = layerType === 'manhole' ? 'waste_water_manhole' : 'waste_water_pipeline';
-    for (const feat of features) {
-      const props = feat.properties;
-      const geom = feat.geometry;
-      const lng = geom.coordinates[0];
-      const lat = geom.coordinates[1];
-      const id = props.id || props.ID || Math.random().toString(36).substr(2, 9);
-      // Insert or update
-      await pool.query(
-        `INSERT INTO ${table} (id, project_id, location, depth, invert_level, ground_level, condition_status, inspector, last_inspection_date)
-         VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7, $8, $9, $10)
-         ON CONFLICT (id) DO UPDATE SET
-           location = EXCLUDED.location,
-           depth = EXCLUDED.depth,
-           invert_level = EXCLUDED.invert_level,
-           ground_level = EXCLUDED.ground_level,
-           condition_status = EXCLUDED.condition_status,
-           inspector = EXCLUDED.inspector,
-           last_inspection_date = EXCLUDED.last_inspection_date,
-           updated_at = now()`,
-        [id, project_id, lng, lat, props.depth, props.invert_level, props.ground_level, props.condition_status, props.inspector, props.last_inspection_date]
-      );
-    }
-    res.json({ message: `Imported ${features.length} features` });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    return res.status(400).json({ error: err.message });
+  } finally {
+    fs.unlinkSync(file.path);
   }
+
+  const features = geojson.features;
+  let inserted = 0;
+  const table = layer_type === 'manhole' ? 'waste_water_manhole' : 'waste_water_pipeline';
+  const idCol = layer_type === 'manhole' ? 'manhole_id' : 'pipe_id';
+
+  for (const feat of features) {
+    const geom = feat.geometry;
+    if (!geom) continue;
+    let lng, lat;
+    if (geom.type === 'Point') {
+      lng = geom.coordinates[0];
+      lat = geom.coordinates[1];
+    } else {
+      // For non-point, take centroid (simplistic)
+      const centroid = { x: geom.coordinates[0][0], y: geom.coordinates[0][1] }; // rough
+      lng = centroid.x;
+      lat = centroid.y;
+    }
+    const plusCode = OpenLocationCode.encode(lat, lng, 10);
+    // Try to get ID from properties
+    let fid = feat.properties?.id || feat.properties?.ID || feat.properties[idCol];
+    if (!fid) fid = `imported_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+    const query = `
+      INSERT INTO ${table} (${idCol}, geom, plus_code, project_id)
+      VALUES ($1, ST_SetSRID(ST_MakePoint($2, $3), 4326), $4, $5)
+      ON CONFLICT (${idCol}) DO UPDATE
+      SET geom = EXCLUDED.geom, plus_code = EXCLUDED.plus_code, project_id = EXCLUDED.project_id
+    `;
+    await pool.query(query, [fid, lng, lat, plusCode, project_id || null]);
+    inserted++;
+  }
+
+  res.json({ message: `Imported ${inserted} features`, features: inserted });
 });
 
 module.exports = router;
