@@ -13,11 +13,22 @@ router.get('/', auth, async (req, res) => {
 router.post('/', auth, allowRoles('engineer'), async (req, res) => {
   const { name, description } = req.body;
   const result = await pool.query(
-    `INSERT INTO projects (name, description, created_by) VALUES ($1, $2, $3) RETURNING *`,
+    `INSERT INTO projects (name, description, created_by)
+     VALUES ($1, $2, $3)
+     RETURNING id`,
     [name, description, req.user.id]
   );
-  res.status(201).json(result.rows[0]);
+  res.status(201).json({ id: result.rows[0].id });
 });
 
-// similarly update, delete
+router.put('/:proj_id', auth, allowRoles('engineer'), async (req, res) => {
+  const { proj_id } = req.params;
+  const { name, description } = req.body;
+  await pool.query(
+    `UPDATE projects SET name = $1, description = $2 WHERE id = $3`,
+    [name, description, proj_id]
+  );
+  res.json({ message: 'Updated' });
+});
+
 module.exports = router;
