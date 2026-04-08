@@ -1,6 +1,6 @@
 const express = require('express');
 const axios = require('axios');
-const OpenLocationCode = require('openlocationcode');
+const OpenLocationCode = require('open-location-code');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
