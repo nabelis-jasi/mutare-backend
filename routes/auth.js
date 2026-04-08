@@ -1,49 +1,54 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 
 const router = express.Router();
 
+// Register new user (requires admin approval later)
 router.post('/register', async (req, res) => {
-  const { email, password, role, name } = req.body;
-  if (!['engineer', 'field-collector', 'field-operator'].includes(role)) {
-    return res.status(400).json({ error: 'Invalid role' });
-  }
+  const { email, password, name, role } = req.body;
+  const hashed = await bcrypt.hash(password, 10);
   try {
-    const hashed = await bcrypt.hash(password, 10);
-    const result = await pool.query(
-      `INSERT INTO users (email, password_hash, role, name)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, email, role, name`,
-      [email, hashed, role, name]
+    await pool.query(
+      `INSERT INTO profiles (email, password_hash, name, role, is_active)
+       VALUES ($1, $2, $3, $4, false)`,
+      [email, hashed, name, role]
     );
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({ message: 'User created, awaiting approval' });
   } catch (err) {
-    if (err.code === '23505') return res.status(400).json({ error: 'Email already exists' });
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ error: err.message });
   }
 });
 
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+// Login – returns JWT
+router.post('/token', async (req, res) => {
+  const { username, password } = req.body;
+  const user = await pool.query('SELECT * FROM profiles WHERE email = $1', [username]);
+  if (user.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+  const valid = await bcrypt.compare(password, user.rows[0].password_hash);
+  if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+  const token = jwt.sign(
+    { id: user.rows[0].id, email: user.rows[0].email, role: user.rows[0].role },
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+  res.json({ access_token: token, token_type: 'bearer' });
+});
+
+// Get current user profile (using token from Authorization header)
+router.get('/me', async (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'No token' });
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = result.rows[0];
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await pool.query(
+      'SELECT id, email, role, name, is_active FROM profiles WHERE id = $1',
+      [decoded.id]
     );
-    res.json({
-      token,
-      user: { id: user.id, email: user.email, role: user.role, name: user.name }
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.json(user.rows[0]);
+  } catch {
+    res.status(401).json({ error: 'Invalid token' });
   }
 });
 
