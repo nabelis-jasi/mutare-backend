@@ -5,7 +5,7 @@ const shp = require('shpjs');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const allowRoles = require('../middleware/roles');
-const OpenLocationCode = require('openlocationcode');
+const OpenLocationCode = require('open-location-code');
 const fs = require('fs');
 const path = require('path');
 
