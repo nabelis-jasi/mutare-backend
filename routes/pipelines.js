@@ -1,5 +1,5 @@
 const express = require('express');
-const { queryUserDatabase } = require('../../utils/dynamicDb');
+const { queryUserDatabase } = require('../utils/dynamicDb');
 const auth = require('../middleware/auth');
 const allowRoles = require('../middleware/roles');
 
