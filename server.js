@@ -1,9 +1,11 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+
+// Existing routes
 const authRoutes = require('./routes/auth');
 const manholeRoutes = require('./routes/manholes');
-const pipelineRoutes = require('./routes/pipelines');   // create similar to manholes
+const pipelineRoutes = require('./routes/pipelines');
 const maintenanceRoutes = require('./routes/maintenance');
 const assetEditRoutes = require('./routes/assetEdits');
 const formRoutes = require('./routes/forms');
@@ -13,17 +15,20 @@ const projectRoutes = require('./routes/projects');
 const geocodeRoutes = require('./routes/geocode');
 const uploadRoutes = require('./routes/upload');
 
+// New routes for engineer dashboard
+const connectionRoutes = require('./routes/connections');
+const analyticsRoutes = require('./routes/analytics');
+
 const app = express();
 
 // CORS
-const allowedOrigins = process.env.ALLOWED_ORIGINS.split(',');
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'];
 app.use(cors({ origin: allowedOrigins, credentials: true }));
-
 app.use(express.json());
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
 // API routes
@@ -39,9 +44,13 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/geocode', geocodeRoutes);
 app.use('/api/upload/shapefile', uploadRoutes);
 
+// NEW: Connections & Analytics (for engineer dashboard)
+app.use('/api/connections', connectionRoutes);
+app.use('/api/analytics', analyticsRoutes);
+
 // Root
 app.get('/', (req, res) => {
-  res.json({ name: 'Wastewater GIS Backend (Node.js)', version: '2.0.0', status: 'running' });
+    res.json({ name: 'Wastewater GIS Backend (Node.js)', version: '2.0.0', status: 'running' });
 });
 
 const PORT = process.env.PORT || 5000;
