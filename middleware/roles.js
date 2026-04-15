@@ -1,17 +1,10 @@
-/**
- * Role-based access control middleware
- * Corrected for ES Module usage (Node.js "type": "module")
- */
+// middleware/roles.js
 const allowRoles = (...allowedRoles) => (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthenticated' });
+  // Since req.user is now hardcoded in auth.js, this will always pass for 'engineer'
+  if (allowedRoles.includes(req.user.role)) {
+    return next();
   }
-
-  if (!allowedRoles.includes(req.user.role)) {
-    return res.status(403).json({ error: 'Insufficient permissions' });
-  }
-
-  next();
+  res.status(403).json({ error: 'Access Denied' });
 };
 
 export default allowRoles;
