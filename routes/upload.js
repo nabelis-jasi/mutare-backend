@@ -1,38 +1,54 @@
-const express = require('express');
-const multer = require('multer');
-const AdmZip = require('adm-zip');
-const shp = require('shpjs');
-const auth = require('../middleware/auth');
-const allowRoles = require('../middleware/roles');
-const fs = require('fs');
+import express from 'express';
+import multer from 'multer';
+import AdmZip from 'adm-zip';
+import shp from 'shpjs';
+import fs from 'fs';
+import auth from '../middleware/auth.js';
+import allowRoles from '../middleware/roles.js';
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
+/**
+ * POST /api/upload/geojson
+ * Converts uploaded Shapefiles (.zip or .shp) to GeoJSON for the MapView
+ */
 router.post('/geojson', auth, allowRoles('engineer'), upload.single('file'), async (req, res) => {
   const file = req.file;
-  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+  
+  if (!file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
 
   let geojson;
   try {
-    if (file.originalname.endsWith('.zip')) {
-      const zip = new AdmZip(file.path);
-      const shpEntry = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.shp'));
-      if (!shpEntry) throw new Error('No .shp file in zip');
-      const shpBuffer = shpEntry.getData();
-      geojson = await shp(shpBuffer);
-    } else if (file.originalname.endsWith('.shp')) {
-      const shpBuffer = fs.readFileSync(file.path);
+    const filePath = file.path;
+    const fileName = file.originalname.toLowerCase();
+
+    if (fileName.endsWith('.zip')) {
+      // Logic for Zipped Shapefiles (Standard QGIS Export)
+      const buffer = fs.readFileSync(filePath);
+      geojson = await shp(buffer);
+    } else if (fileName.endsWith('.shp')) {
+      // Logic for raw .shp files
+      const shpBuffer = fs.readFileSync(filePath);
       geojson = await shp(shpBuffer);
     } else {
-      throw new Error('Only .zip or .shp files allowed');
+      throw new Error('Only .zip (Shapefile bundles) or .shp files are supported.');
     }
+
+    // Success: Return GeoJSON to the frontend MapView
+    res.json(geojson);
+
   } catch (err) {
-    return res.status(400).json({ error: err.message });
+    console.error('GIS Upload Error:', err.message);
+    res.status(400).json({ error: `GIS Conversion Failed: ${err.message}` });
   } finally {
-    fs.unlinkSync(file.path);
+    // Clean up: Always delete the temporary file from the 'uploads/' folder
+    if (file && fs.existsSync(file.path)) {
+      fs.unlinkSync(file.path);
+    }
   }
-  res.json(geojson);
 });
 
-module.exports = router;
+export default router;
