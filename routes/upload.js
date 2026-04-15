@@ -1,4 +1,3 @@
-// backend/routes/upload.js
 const express = require('express');
 const multer = require('multer');
 const AdmZip = require('adm-zip');
@@ -10,8 +9,6 @@ const fs = require('fs');
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
-// Existing shapefile upload that inserts into DB – you may keep or remove
-// We add a new endpoint that returns GeoJSON without storing
 router.post('/geojson', auth, allowRoles('engineer'), upload.single('file'), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
@@ -20,8 +17,7 @@ router.post('/geojson', auth, allowRoles('engineer'), upload.single('file'), asy
   try {
     if (file.originalname.endsWith('.zip')) {
       const zip = new AdmZip(file.path);
-      const entries = zip.getEntries();
-      const shpEntry = entries.find(e => e.entryName.toLowerCase().endsWith('.shp'));
+      const shpEntry = zip.getEntries().find(e => e.entryName.toLowerCase().endsWith('.shp'));
       if (!shpEntry) throw new Error('No .shp file in zip');
       const shpBuffer = shpEntry.getData();
       geojson = await shp(shpBuffer);
@@ -36,7 +32,6 @@ router.post('/geojson', auth, allowRoles('engineer'), upload.single('file'), asy
   } finally {
     fs.unlinkSync(file.path);
   }
-
   res.json(geojson);
 });
 
