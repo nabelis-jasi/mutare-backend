@@ -3,7 +3,7 @@ const express = require('express');
 const pool = require('../db/pool');
 const auth = require('../middleware/auth');
 const allowRoles = require('../middleware/roles');
-const { getActiveConnectionPool } = require('../utils/dynamicDb');
+
 
 const router = express.Router();
 
