@@ -3,22 +3,15 @@ const express = require('express');
 const multer = require('multer');
 const AdmZip = require('adm-zip');
 const shp = require('shpjs');
-const pool = require('../db/pool'); // still needed for other routes? Not for this endpoint, but keep if other endpoints use it.
 const auth = require('../middleware/auth');
 const allowRoles = require('../middleware/roles');
-const OpenLocationCode = require('open-location-code');
 const fs = require('fs');
-const path = require('path');
 
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
-// Existing shapefile upload that inserts into DB (keep if needed, but we won't use it)
-router.post('/', auth, allowRoles('engineer'), upload.single('file'), async (req, res) => {
-  // ... (your existing code, unchanged)
-});
-
-// NEW: endpoint that returns GeoJSON without storing
+// Existing shapefile upload that inserts into DB – you may keep or remove
+// We add a new endpoint that returns GeoJSON without storing
 router.post('/geojson', auth, allowRoles('engineer'), upload.single('file'), async (req, res) => {
   const file = req.file;
   if (!file) return res.status(400).json({ error: 'No file uploaded' });
@@ -44,7 +37,6 @@ router.post('/geojson', auth, allowRoles('engineer'), upload.single('file'), asy
     fs.unlinkSync(file.path);
   }
 
-  // Return the GeoJSON directly
   res.json(geojson);
 });
 
