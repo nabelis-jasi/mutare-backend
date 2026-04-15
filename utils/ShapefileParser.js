@@ -1,26 +1,41 @@
-const shapefile = require('shapefile');
+import AdmZip from 'adm-zip';
+import shp from 'shpjs';
 
-async function parseShapefileToGeoJSON(zipBuffer) {
-  // Note: shapefile library expects a readable stream or a file path.
-  // For a ZIP buffer, we need to unzip first. Use 'adm-zip' or 'yauzl'.
-  // Simpler approach: let frontend parse with shpjs? But we'll do server-side.
-  // I'll provide a robust version using 'adm-zip' and 'shapefile' reading each file from memory.
-  // However, to keep this answer concise, we'll assume the frontend sends already extracted .shp and .dbf buffers.
-  // For production, use 'adm-zip' + 'shapefile' with 'string-to-stream'.
-  // Here's a working implementation using 'adm-zip' and 'shpjs' (works in Node with buffer).
-  const AdmZip = require('adm-zip');
-  const shp = require('shpjs'); // shpjs works in Node with buffer
+/**
+ * parseShapefileToGeoJSON
+ * @param {Buffer} zipBuffer - The raw buffer from the uploaded .zip file
+ * @returns {Promise<Object>} - A GeoJSON FeatureCollection
+ */
+export async function parseShapefileToGeoJSON(zipBuffer) {
+  try {
+    // Check if we actually have data
+    if (!zipBuffer || zipBuffer.length === 0) {
+      throw new Error('Empty file buffer provided');
+    }
 
-  const zip = new AdmZip(zipBuffer);
-  const entries = zip.getEntries();
-  // Find the .shp file
-  const shpEntry = entries.find(e => e.entryName.endsWith('.shp'));
-  if (!shpEntry) throw new Error('No .shp file found in ZIP');
-  const shpBuffer = shpEntry.getData();
-  // shpjs expects a buffer of the .shp file (it will automatically find .dbf in same ZIP? Not exactly)
-  // Better: use 'shpjs' with full buffer array. Actually shpjs can read a ZIP buffer directly.
-  const geojson = await shp(zipBuffer);
-  return geojson;
+    /**
+     * SHPJS handles the heavy lifting.
+     * When passed a ZIP buffer, it internally looks for:
+     * .shp (geometry), .dbf (attributes), and .prj (projection).
+     * It will automatically project the data to WGS84 (lat/lng) 
+     * which is required for Leaflet/WWGIS maps.
+     */
+    const geojson = await shp(zipBuffer);
+
+    // If shpjs returns an array (multiple layers), we return the first one
+    // or wrap them in a FeatureCollection.
+    if (Array.isArray(geojson)) {
+      console.log(`Parsed ${geojson.length} layers from ZIP`);
+      return geojson[0]; 
+    }
+
+    return geojson;
+  } catch (err) {
+    console.error('Shapefile Parser Error:', err.message);
+    throw new Error(`Failed to parse GIS data: ${err.message}`);
+  }
 }
 
-module.exports = { parseShapefileToGeoJSON };
+// Named export is already handled by 'export async function' above.
+// But we can add a default export for convenience:
+export default parseShapefileToGeoJSON;
