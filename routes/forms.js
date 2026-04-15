@@ -1,7 +1,8 @@
-const express = require('express');
-const pool = require('../db/pool');
-const auth = require('../middleware/auth');
-const allowRoles = require('../middleware/roles');
+// backend/routes/forms.js
+import express from 'express';
+import pool from '../db/pool.js';
+import auth from '../middleware/auth.js';
+import allowRoles from '../middleware/roles.js';
 
 const router = express.Router();
 
@@ -66,4 +67,4 @@ router.post('/:form_id/fields', auth, allowRoles('engineer'), async (req, res) =
   res.json({ message: `Saved ${fields.length} fields` });
 });
 
-module.exports = router;
+export default router;
