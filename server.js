@@ -1,36 +1,30 @@
+// backend/server.js
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 
-// Auth & core - Extensions (.js) are MANDATORY in ES Modules
-import auth from './routes/auth.js';
-import maintenance from './routes/maintenance.js';
-import assetEdit from './routes/assetEdits.js';
-import forms from './routes/forms.js';
-import submissions from './routes/submissions.js';
-import flag from './routes/flag.js';
-import projects from './routes/projects.js';
-import upload from './routes/upload.js';
-
-// Analytics (non‑spatial only)
+// Import routers (each should export a default Express router)
+import authRoutes from './routes/auth.js';
+import maintenanceRoutes from './routes/maintenance.js';
+import assetEditRoutes from './routes/assetEdits.js';
+import formRoutes from './routes/forms.js';
+import submissionRoutes from './routes/submissions.js';
+import flagRoutes from './routes/flag.js';
+import projectRoutes from './routes/projects.js';
+import uploadRoutes from './routes/upload.js';
 import analyticsRoutes from './routes/analytics.js';
 
 const app = express();
 
-// Middleware
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'];
-app.use(cors({ 
-  origin: allowedOrigins, 
-  credentials: true 
-}));
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
-// Health Check
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Routes
+// Mount routes
 app.use('/api', authRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/asset-edits', assetEditRoutes);
@@ -41,7 +35,6 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/upload/shapefile', uploadRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-// Root Endpoint
 app.get('/', (req, res) => {
   res.json({ name: 'Wastewater GIS Backend', version: '3.0.0', status: 'running' });
 });
