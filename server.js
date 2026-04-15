@@ -1,30 +1,36 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
 
-// Auth & core
-const authRoutes = require('./routes/auth');
-const maintenanceRoutes = require('./routes/maintenance');
-const assetEditRoutes = require('./routes/assetEdits');
-const formRoutes = require('./routes/forms');
-const submissionRoutes = require('./routes/submissions');
-const flagRoutes = require('./routes/flag');
-const projectRoutes = require('./routes/projects');
-const uploadRoutes = require('./routes/upload');
+// Auth & core - Extensions (.js) are MANDATORY in ES Modules
+import authRoutes from './routes/auth.js';
+import maintenanceRoutes from './routes/maintenance.js';
+import assetEditRoutes from './routes/assetEdits.js';
+import formRoutes from './routes/forms.js';
+import submissionRoutes from './routes/submissions.js';
+import flagRoutes from './routes/flag.js';
+import projectRoutes from './routes/projects.js';
+import uploadRoutes from './routes/upload.js';
 
 // Analytics (non‑spatial only)
-const analyticsRoutes = require('./routes/analytics');
+import analyticsRoutes from './routes/analytics.js';
 
 const app = express();
 
+// Middleware
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'];
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(cors({ 
+  origin: allowedOrigins, 
+  credentials: true 
+}));
 app.use(express.json());
 
+// Health Check
 app.get('/health', (req, res) => {
   res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
+// Routes
 app.use('/api', authRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/asset-edits', assetEditRoutes);
@@ -35,9 +41,10 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/upload/shapefile', uploadRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+// Root Endpoint
 app.get('/', (req, res) => {
   res.json({ name: 'Wastewater GIS Backend', version: '3.0.0', status: 'running' });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
