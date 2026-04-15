@@ -1,8 +1,8 @@
 // backend/routes/flag.js
-const express = require('express');
-const pool = require('../db/pool');
-const auth = require('../middleware/auth');
-const allowRoles = require('../middleware/roles');
+import express from 'express';
+import pool from '../db/pool.js';
+import auth from '../middleware/auth.js';
+import allowRoles from '../middleware/roles.js';
 
 const router = express.Router();
 
@@ -39,4 +39,4 @@ router.put('/:flag_id/resolve', auth, allowRoles('engineer'), async (req, res) =
     res.json({ message: 'Resolved' });
 });
 
-module.exports = router;
+export default router;
