@@ -1,172 +1,136 @@
-const express = require('express');
-const pool = require('../db/pool');
-const auth = require('../middleware/auth');
-const allowRoles = require('../middleware/roles');
+// src/components/engineer/AnalysisTools.jsx
+import React, { useState } from 'react';
+import * as turf from '@turf/turf';
+import L from 'leaflet';
 
-const router = express.Router();
+export default function AnalysisTools({ map, onClose }) {
+  const [tool, setTool] = useState('buffer');
+  const [radius, setRadius] = useState(100);
+  const [unit, setUnit] = useState('meters');
+  const [selectedPoint, setSelectedPoint] = useState(null);
+  const [resultLayer, setResultLayer] = useState(null);
 
-// Counts are now computed on frontend – return zeros
-router.get('/counts', auth, allowRoles('engineer'), async (req, res) => {
-  res.json({ manholes: 0, pipelines: 0, suburbs: 0 });
-});
+  const startPointPicker = () => {
+    if (!map) return;
+    map.getContainer().style.cursor = 'crosshair';
+    map.once('click', (e) => {
+      map.getContainer().style.cursor = '';
+      setSelectedPoint([e.latlng.lng, e.latlng.lat]);
+    });
+  };
 
-// Maintenance stats
-router.get('/maintenance-stats', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query('SELECT status, COUNT(*) FROM maintenance_records GROUP BY status');
-  res.json(result.rows);
-});
+  const runBuffer = () => {
+    if (!selectedPoint || !map) return;
+    const point = turf.point(selectedPoint);
+    const buffered = turf.buffer(point, radius, { units: unit });
+    if (resultLayer) map.removeLayer(resultLayer);
+    const layer = L.geoJSON(buffered, { color: '#ff7800', weight: 2 }).addTo(map);
+    setResultLayer(layer);
+    map.fitBounds(layer.getBounds());
+  };
 
-// Asset edits stats
-router.get('/asset-edits-stats', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query('SELECT status, COUNT(*) FROM asset_edits GROUP BY status');
-  res.json(result.rows);
-});
+  const runDistance = () => {
+    if (!map) return;
+    let points = [];
+    map.getContainer().style.cursor = 'crosshair';
+    alert('Click on the map to pick first point');
+    map.once('click', (e1) => {
+      points.push([e1.latlng.lng, e1.latlng.lat]);
+      alert('Click on the map to pick second point');
+      map.once('click', (e2) => {
+        points.push([e2.latlng.lng, e2.latlng.lat]);
+        const from = turf.point(points[0]);
+        const to = turf.point(points[1]);
+        const distance = turf.distance(from, to, { units: 'kilometers' });
+        alert(`Distance: ${distance.toFixed(2)} km`);
+        map.getContainer().style.cursor = '';
+      });
+    });
+  };
 
-// Operator activity (last 30 days)
-router.get('/operator-activity', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query(`
-    SELECT DATE(created_at) as day, action_type, COUNT(*) as count
-    FROM operator_job_log
-    WHERE created_at >= NOW() - INTERVAL '30 days'
-    GROUP BY day, action_type
-    ORDER BY day DESC
-  `);
-  res.json(result.rows);
-});
+  const styles = {
+    container: {
+      position: "absolute",
+      top: "80px",
+      right: "20px",
+      width: "350px",
+      backgroundColor: "white",
+      borderRadius: "12px",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+      zIndex: 1000,
+      overflow: "hidden",
+    },
+    header: {
+      padding: "1rem",
+      backgroundColor: "#8fdc00",
+      color: "white",
+      fontWeight: "bold",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    closeBtn: { background: "none", border: "none", color: "white", fontSize: "1.2rem", cursor: "pointer" },
+    content: { padding: "1rem" },
+    formGroup: { marginBottom: "1rem" },
+    label: { display: "block", fontWeight: "bold", marginBottom: "0.25rem", color: "#555" },
+    input: { width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #ccc" },
+    select: { width: "100%", padding: "0.5rem", borderRadius: "6px", border: "1px solid #ccc" },
+    button: { padding: "0.5rem 1rem", borderRadius: "6px", border: "none", cursor: "pointer", fontWeight: "bold", marginRight: "0.5rem" },
+    primaryBtn: { backgroundColor: "#4caf50", color: "white" },
+    secondaryBtn: { backgroundColor: "#2196f3", color: "white" },
+  };
 
-// Average resolution time
-router.get('/resolution-time', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query(`
-    SELECT AVG(EXTRACT(EPOCH FROM (reviewed_at - created_at))/3600) as avg_hours
-    FROM maintenance_records
-    WHERE status = 'approved' AND reviewed_at IS NOT NULL
-  `);
-  res.json({ avg_hours: parseFloat(result.rows[0].avg_hours || 0).toFixed(2) });
-});
+  return (
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <span>🧠 Spatial Analysis</span>
+        <button style={styles.closeBtn} onClick={onClose}>×</button>
+      </div>
+      <div style={styles.content}>
+        <div style={styles.formGroup}>
+          <label style={styles.label}>Tool</label>
+          <select style={styles.select} value={tool} onChange={e => setTool(e.target.value)}>
+            <option value="buffer">Buffer</option>
+            <option value="distance">Distance</option>
+          </select>
+        </div>
 
-// Flag hotspots – from flags table only (no spatial join)
-router.get('/flag-hotspots', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query(`
-    SELECT feature_id, feature_type, COUNT(*) as flag_count
-    FROM flags
-    GROUP BY feature_id, feature_type
-    ORDER BY flag_count DESC
-    LIMIT 20
-  `);
-  const hotspots = result.rows.map(row => ({
-    suburb: row.feature_id,   // fallback
-    feature_id: row.feature_id,
-    flag_count: parseInt(row.flag_count)
-  }));
-  res.json(hotspots);
-});
+        {tool === 'buffer' && (
+          <>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Radius</label>
+              <input style={styles.input} type="number" value={radius} onChange={e => setRadius(Number(e.target.value))} />
+            </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Unit</label>
+              <select style={styles.select} value={unit} onChange={e => setUnit(e.target.value)}>
+                <option value="meters">meters</option>
+                <option value="kilometers">kilometers</option>
+                <option value="miles">miles</option>
+              </select>
+            </div>
+            <button style={{ ...styles.button, ...styles.secondaryBtn }} onClick={startPointPicker}>Pick Point on Map</button>
+            {selectedPoint && (
+              <div style={{ marginTop: '0.5rem', fontSize: '0.8rem' }}>
+                Point: {selectedPoint[0].toFixed(4)}, {selectedPoint[1].toFixed(4)}
+              </div>
+            )}
+            <button
+              style={{ ...styles.button, ...styles.primaryBtn, marginTop: '0.5rem' }}
+              onClick={runBuffer}
+              disabled={!selectedPoint}
+            >
+              Run Buffer
+            </button>
+          </>
+        )}
 
-// Maintenance records with filters
-router.get('/maintenance-records', auth, allowRoles('engineer'), async (req, res) => {
-  const { status, feature_type, start_date, end_date } = req.query;
-  let query = 'SELECT * FROM maintenance_records WHERE 1=1';
-  const params = [];
-  let idx = 1;
-  if (status) { query += ` AND status = $${idx++}`; params.push(status); }
-  if (feature_type) { query += ` AND feature_type = $${idx++}`; params.push(feature_type); }
-  if (start_date) { query += ` AND created_at >= $${idx++}`; params.push(start_date); }
-  if (end_date) { query += ` AND created_at <= $${idx++}`; params.push(end_date); }
-  query += ' ORDER BY created_at DESC LIMIT 200';
-  const result = await pool.query(query, params);
-  res.json(result.rows);
-});
-
-// Job logs
-router.get('/job-logs', auth, allowRoles('engineer'), async (req, res) => {
-  const { start_date, end_date, operator_id, action_type } = req.query;
-  let query = `
-    SELECT l.*, p.name as operator_name
-    FROM operator_job_log l
-    JOIN profiles p ON l.operator_id = p.id
-    WHERE 1=1
-  `;
-  const params = [];
-  let idx = 1;
-  if (start_date) { query += ` AND l.created_at >= $${idx++}`; params.push(start_date); }
-  if (end_date) { query += ` AND l.created_at <= $${idx++}`; params.push(end_date); }
-  if (operator_id) { query += ` AND l.operator_id = $${idx++}`; params.push(operator_id); }
-  if (action_type) { query += ` AND l.action_type = $${idx++}`; params.push(action_type); }
-  query += ' ORDER BY l.created_at DESC LIMIT 500';
-  const result = await pool.query(query, params);
-  res.json(result.rows);
-});
-
-// Operators list
-router.get('/operators', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query('SELECT id, name FROM profiles WHERE role = $1 ORDER BY name', ['field-operator']);
-  res.json(result.rows);
-});
-
-// Action types
-router.get('/action-types', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query('SELECT DISTINCT action_type FROM operator_job_log ORDER BY action_type');
-  res.json(result.rows.map(r => r.action_type));
-});
-
-// Periodic reports (daily/weekly/monthly)
-router.get('/daily-reports', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query(`
-    SELECT DATE(created_at) as period,
-           COUNT(*) FILTER (WHERE table_name = 'maintenance_records') as maintenance_count,
-           COUNT(*) FILTER (WHERE table_name = 'asset_edits') as asset_edits_count,
-           COUNT(*) FILTER (WHERE table_name = 'flags') as flags_count
-    FROM (
-      SELECT created_at, 'maintenance_records' as table_name FROM maintenance_records
-      UNION ALL
-      SELECT created_at, 'asset_edits' FROM asset_edits
-      UNION ALL
-      SELECT created_at, 'flags' FROM flags
-    ) AS combined
-    WHERE created_at >= NOW() - INTERVAL '30 days'
-    GROUP BY DATE(created_at)
-    ORDER BY period DESC
-  `);
-  res.json(result.rows);
-});
-
-router.get('/weekly-reports', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query(`
-    SELECT DATE_TRUNC('week', created_at)::date as period,
-           COUNT(*) FILTER (WHERE table_name = 'maintenance_records') as maintenance_count,
-           COUNT(*) FILTER (WHERE table_name = 'asset_edits') as asset_edits_count,
-           COUNT(*) FILTER (WHERE table_name = 'flags') as flags_count
-    FROM (
-      SELECT created_at, 'maintenance_records' as table_name FROM maintenance_records
-      UNION ALL
-      SELECT created_at, 'asset_edits' FROM asset_edits
-      UNION ALL
-      SELECT created_at, 'flags' FROM flags
-    ) AS combined
-    WHERE created_at >= NOW() - INTERVAL '6 months'
-    GROUP BY DATE_TRUNC('week', created_at)
-    ORDER BY period DESC
-  `);
-  res.json(result.rows);
-});
-
-router.get('/monthly-reports', auth, allowRoles('engineer'), async (req, res) => {
-  const result = await pool.query(`
-    SELECT DATE_TRUNC('month', created_at)::date as period,
-           COUNT(*) FILTER (WHERE table_name = 'maintenance_records') as maintenance_count,
-           COUNT(*) FILTER (WHERE table_name = 'asset_edits') as asset_edits_count,
-           COUNT(*) FILTER (WHERE table_name = 'flags') as flags_count
-    FROM (
-      SELECT created_at, 'maintenance_records' as table_name FROM maintenance_records
-      UNION ALL
-      SELECT created_at, 'asset_edits' FROM asset_edits
-      UNION ALL
-      SELECT created_at, 'flags' FROM flags
-    ) AS combined
-    WHERE created_at >= NOW() - INTERVAL '2 years'
-    GROUP BY DATE_TRUNC('month', created_at)
-    ORDER BY period DESC
-  `);
-  res.json(result.rows);
-});
-
-module.exports = router;
+        {tool === 'distance' && (
+          <button style={{ ...styles.button, ...styles.primaryBtn }} onClick={runDistance}>
+            Pick Two Points
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
