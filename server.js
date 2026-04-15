@@ -12,11 +12,10 @@ const formRoutes = require('./routes/forms');
 const submissionRoutes = require('./routes/submissions');
 const flagRoutes = require('./routes/flag');
 const projectRoutes = require('./routes/projects');
-const geocodeRoutes = require('./routes/geocode');
+// const geocodeRoutes = require('./routes/geocode');   // removed – not needed without GeoServer
 const uploadRoutes = require('./routes/upload');
 
-// New routes for engineer dashboard
-const connectionRoutes = require('./routes/connections');
+// Analytics (PostgreSQL‑based)
 const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
@@ -41,11 +40,8 @@ app.use('/api/forms', formRoutes);
 app.use('/api/submissions', submissionRoutes);
 app.use('/api/flags', flagRoutes);
 app.use('/api/projects', projectRoutes);
-app.use('/api/geocode', geocodeRoutes);
+// app.use('/api/geocode', geocodeRoutes);   // removed
 app.use('/api/upload/shapefile', uploadRoutes);
-
-// NEW: Connections & Analytics (for engineer dashboard)
-app.use('/api/connections', connectionRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 // Root
