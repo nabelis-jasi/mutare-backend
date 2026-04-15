@@ -3,14 +3,14 @@ import express from 'express';
 import cors from 'cors';
 
 // Auth & core - Extensions (.js) are MANDATORY in ES Modules
-import authRoutes from './routes/auth.js';
-import maintenanceRoutes from './routes/maintenance.js';
-import assetEditRoutes from './routes/assetEdits.js';
-import formRoutes from './routes/forms.js';
-import submissionRoutes from './routes/submissions.js';
-import flagRoutes from './routes/flag.js';
-import projectRoutes from './routes/projects.js';
-import uploadRoutes from './routes/upload.js';
+import auth from './routes/auth.js';
+import maintenance from './routes/maintenance.js';
+import assetEdit from './routes/assetEdits.js';
+import forms from './routes/forms.js';
+import submissions from './routes/submissions.js';
+import flag from './routes/flag.js';
+import projects from './routes/projects.js';
+import upload from './routes/upload.js';
 
 // Analytics (non‑spatial only)
 import analyticsRoutes from './routes/analytics.js';
