@@ -1,7 +1,8 @@
-const express = require('express');
-const axios = require('axios');
-const OpenLocationCode = require('open-location-code');
-const auth = require('../middleware/auth');
+// backend/routes/geocode.js
+import express from 'express';
+import axios from 'axios';
+import OpenLocationCode from 'open-location-code';
+import auth from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -49,4 +50,4 @@ router.get('/coordinates-to-pluscode', auth, (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
