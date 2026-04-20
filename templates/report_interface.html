@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Report Processor</title>
+    <link rel="stylesheet" href="/static/report_style.css">
+</head>
+<body>
+<div class="report-interface">
+    <div class="report-header">
+        <h2>📋 DAILY SEWER REPORT PROCESSOR</h2>
+        <p>Paste the daily report text below to parse complaints, geocode addresses, and create buffers</p>
+    </div>
+    
+    <div class="report-input-section">
+        <textarea id="reportText" placeholder="Paste your daily report here...&#10;&#10;Example:&#10;SEWER SECTION DAILY REPORT ON 19/11/2025.&#10;Complaints received=33.&#10;Complaints attended to 24 current + 4 from the previous days.&#10;-Sakubva Beithall Gym.&#10;-5689 Bernwin."></textarea>
+        <button id="processBtn">🔍 PROCESS REPORT</button>
+    </div>
+    
+    <div id="resultPanel" class="result-panel" style="display: none;">
+        <div class="result-header">
+            <h3>📊 Processing Result</h3>
+            <button id="closeResult" class="close-btn">&times;</button>
+        </div>
+        <div id="resultStats" class="result-stats"></div>
+        <div id="resultPreview" class="result-preview"></div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('processBtn').addEventListener('click', async () => {
+        const reportText = document.getElementById('reportText').value;
+        
+        if (!reportText.trim()) {
+            alert('Please paste a report first');
+            return;
+        }
+        
+        const resultPanel = document.getElementById('resultPanel');
+        const statsDiv = document.getElementById('resultStats');
+        const previewDiv = document.getElementById('resultPreview');
+        
+        resultPanel.style.display = 'block';
+        statsDiv.innerHTML = '<div class="loading">⏳ Processing report...</div>';
+        previewDiv.innerHTML = '';
+        
+        try {
+            const response = await fetch('/api/reports/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ report_text: reportText })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                statsDiv.innerHTML = `
+                    <div class="stat-row success">✅ Status: Success</div>
+                    <div class="stat-row">📅 Report Date: ${data.report_date}</div>
+                    <div class="stat-row">📊 Total Complaints: ${data.stats.total_complaints}</div>
+                    <div class="stat-row">✅ Attended To: ${data.stats.complaints_attended}</div>
+                    <div class="stat-row">⏳ Outstanding Jobs: ${data.stats.outstanding_jobs}</div>
+                    <div class="stat-row">📍 Complaints Parsed: ${data.complaints_count}</div>
+                    <div class="stat-row">🚗 Operational Vehicles: ${data.transport_operational}</div>
+                    <div class="stat-row">🔧 Workshop Vehicles: ${data.transport_workshop}</div>
+                `;
+            } else {
+                statsDiv.innerHTML = `<div class="stat-row error">❌ Error: ${data.error}</div>`;
+            }
+        } catch (error) {
+            statsDiv.innerHTML = `<div class="stat-row error">❌ Connection Error: Make sure backend is running</div>`;
+        }
+    });
+    
+    document.getElementById('closeResult')?.addEventListener('click', () => {
+        document.getElementById('resultPanel').style.display = 'none';
+    });
+</script>
+</body>
+</html>
