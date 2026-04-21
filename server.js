@@ -1,43 +1,65 @@
-// backend/server.js
-import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const path = require('path');
+const http = require('http');
+const socketIo = require('socket.io');
 
-// Import routers (each should export a default Express router)
-import authRoutes from './routes/auth.js';
-import maintenanceRoutes from './routes/maintenance.js';
-import assetEditRoutes from './routes/assetEdits.js';
-import formRoutes from './routes/forms.js';
-import submissionRoutes from './routes/submissions.js';
-import flagRoutes from './routes/flag.js';
-import projectRoutes from './routes/projects.js';
-import uploadRoutes from './routes/upload.js';
-import analyticsRoutes from './routes/analytics.js';
+// Import routes
+const assetsRoutes = require('./routes/assets');
+const jobsRoutes = require('./routes/jobs');
+const manholesRoutes = require('./routes/manholes');
+const pipelinesRoutes = require('./routes/pipelines');
+const heatmapRoutes = require('./routes/heatmap');
+const reportsRoutes = require('./routes/reports');
+const exportsRoutes = require('./routes/exports');
+const syncRoutes = require('./routes/sync');
+const systemRoutes = require('./routes/system');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
+const server = http.createServer(app);
+const io = socketIo(server, { cors: { origin: '*' } });
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:5173'];
-app.use(cors({ origin: allowedOrigins, credentials: true }));
-app.use(express.json());
+// Middleware
+app.use(cors());
+app.use(helmet());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
+// Static frontend (if you place your dashboard here)
+app.use(express.static(path.join(__dirname, 'public')));
 
-// Mount routes
-app.use('/api', authRoutes);
-app.use('/api/maintenance', maintenanceRoutes);
-app.use('/api/asset-edits', assetEditRoutes);
-app.use('/api/forms', formRoutes);
-app.use('/api/submissions', submissionRoutes);
-app.use('/api/flags', flagRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/upload/shapefile', uploadRoutes);
+// API routes
+app.use('/api/assets', assetsRoutes);
+app.use('/api/jobs', jobsRoutes);
+app.use('/api/manholes', manholesRoutes);
+app.use('/api/pipelines', pipelinesRoutes);
+app.use('/api/heatmap', heatmapRoutes);
+app.use('/api/reports', reportsRoutes);
+app.use('/api/exports', exportsRoutes);
+app.use('/api/sync', syncRoutes);
+app.use('/api/system', systemRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
-app.get('/', (req, res) => {
-  res.json({ name: 'Wastewater GIS Backend', version: '3.0.0', status: 'running' });
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date(), server: 'Node.js' });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// Catch-all for frontend
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// WebSocket
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+  socket.on('disconnect', () => console.log('Client disconnected'));
+});
+
+const PORT = process.env.NODE_PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 Node.js server running on http://localhost:${PORT}`);
+});
