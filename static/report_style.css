@@ -1,0 +1,103 @@
+/* Report Interface Styles */
+.report-interface {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #0d2b0d;
+    border-radius: 12px;
+    border: 2px solid forestgreen;
+}
+
+.report-header h2 {
+    color: #7cb342;
+    margin-bottom: 10px;
+}
+
+.report-header p {
+    color: #7ab87a;
+    font-size: 0.8em;
+    margin-bottom: 20px;
+}
+
+.report-input-section textarea {
+    width: 100%;
+    height: 300px;
+    background: #1a3a1a;
+    border: 1px solid forestgreen;
+    color: forestgreen;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 12px;
+    resize: vertical;
+}
+
+.report-input-section button {
+    width: 100%;
+    margin-top: 15px;
+    padding: 12px;
+    background: #1a3a1a;
+    border: 1px solid forestgreen;
+    color: forestgreen;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+}
+
+.report-input-section button:hover {
+    background: forestgreen;
+    color: #0a1f0a;
+}
+
+.result-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background: #1a3a1a;
+    border-radius: 8px;
+    border: 1px solid forestgreen;
+}
+
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid forestgreen;
+}
+
+.result-header h3 {
+    color: #7cb342;
+    margin: 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: forestgreen;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.close-btn:hover {
+    color: #dc3545;
+}
+
+.result-stats .stat-row {
+    padding: 6px 0;
+    border-bottom: 1px solid #2a4a2a;
+    font-size: 0.85em;
+}
+
+.result-stats .success {
+    color: #28a745;
+}
+
+.result-stats .error {
+    color: #dc3545;
+}
+
+.result-stats .loading {
+    color: #ffc107;
+}
