@@ -1,7 +1,7 @@
 {
   "name": "mutare-backend",
-  "version": "2.0.0",
-  "description": "Mutare Sewer Asset Management Backend (Node.js)",
+  "version": "1.0.0",
+  "description": "Mutare Sewer Asset Management Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
