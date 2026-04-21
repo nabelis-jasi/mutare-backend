@@ -6,7 +6,6 @@ const path = require('path');
 const http = require('http');
 const socketIo = require('socket.io');
 
-// Import routes
 const assetsRoutes = require('./routes/assets');
 const jobsRoutes = require('./routes/jobs');
 const manholesRoutes = require('./routes/manholes');
@@ -28,7 +27,7 @@ app.use(helmet());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Static frontend (if you place your dashboard here)
+// Serve static frontend (if any)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API routes
@@ -48,7 +47,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date(), server: 'Node.js' });
 });
 
-// Catch-all for frontend
+// Catch-all to serve frontend (if you have an index.html)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
