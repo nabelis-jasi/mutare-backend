@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../node/db.config');
+const db = require('../node/config/db');
 
 // Get all assets
 router.get('/', async (req, res) => {
