@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // node/server.js
 // Main Express + Socket.io server — port 3000
 
