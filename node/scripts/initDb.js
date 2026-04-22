@@ -19,7 +19,7 @@ async function initDb() {
         password: process.env.DB_PASSWORD || '',
     });
 
-    const dbName = process.env.DB_NAME || 'sewer_management';
+    const dbName = process.env.DB_NAME || 'blue';
 
     try {
         // Check if our database already exists
