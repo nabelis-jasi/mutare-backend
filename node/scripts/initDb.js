@@ -16,7 +16,7 @@ async function initDb() {
         port:     parseInt(process.env.DB_PORT) || 5432,
         database: 'postgres',   // connect to default DB first
         user:     process.env.DB_USER     || 'postgres',
-        password: process.env.DB_PASSWORD || '',
+        password: process.env.DB_PASSWORD || '12345',
     });
 
     const dbName = process.env.DB_NAME || 'blue';
