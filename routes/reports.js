@@ -4,18 +4,24 @@
 
 const express = require('express');
 const router  = express.Router();
-const { query } = require('../node/config/db');
+const { query } = require('../node/config/db');   // path to your db config
+
+// Helper: today's date as YYYY-MM-DD
+function today() {
+    return new Date().toISOString().slice(0, 10);
+}
 
 // ─── GET /api/exports/manholes.geojson ────────────────────────────────────────
 router.get('/manholes.geojson', async (req, res) => {
     try {
+        // Use `geom` as the geometry column (PostGIS Point)
         const result = await query(`
-            SELECT ST_AsGeoJSON(location)::json AS geometry,
+            SELECT ST_AsGeoJSON(geom)::json AS geometry,
                    manhole_id, mh_depth, bloc_stat, status,
                    blockages, suburb_nam, inspector, type,
                    diameter, material
             FROM waste_water_manhole
-            WHERE location IS NOT NULL
+            WHERE geom IS NOT NULL
         `);
 
         const geojson = {
@@ -44,6 +50,7 @@ router.get('/manholes.geojson', async (req, res) => {
         res.setHeader('Content-Type', 'application/geo+json');
         res.json(geojson);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -52,11 +59,11 @@ router.get('/manholes.geojson', async (req, res) => {
 router.get('/pipelines.geojson', async (req, res) => {
     try {
         const result = await query(`
-            SELECT ST_AsGeoJSON(route)::json AS geometry,
+            SELECT ST_AsGeoJSON(geom)::json AS geometry,
                    pipe_id, start_mh, end_mh, pipe_mat,
                    pipe_size, class, block_stat, length
             FROM waste_water_pipeline
-            WHERE route IS NOT NULL
+            WHERE geom IS NOT NULL
         `);
 
         const geojson = {
@@ -83,6 +90,7 @@ router.get('/pipelines.geojson', async (req, res) => {
         res.setHeader('Content-Type', 'application/geo+json');
         res.json(geojson);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -93,9 +101,10 @@ router.get('/manholes.csv', async (req, res) => {
         const result = await query(`
             SELECT manhole_id, mh_depth, bloc_stat, status, blockages,
                    suburb_nam, inspector, type, diameter, material,
-                   ST_Y(location::geometry) AS latitude,
-                   ST_X(location::geometry) AS longitude
+                   ST_Y(geom) AS latitude,
+                   ST_X(geom) AS longitude
             FROM waste_water_manhole
+            WHERE geom IS NOT NULL
             ORDER BY manhole_id
         `);
 
@@ -119,6 +128,7 @@ router.get('/manholes.csv', async (req, res) => {
         res.setHeader('Content-Type', 'text/csv');
         res.send(csv);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -129,9 +139,10 @@ router.get('/pipelines.csv', async (req, res) => {
         const result = await query(`
             SELECT pipe_id, start_mh, end_mh, pipe_mat, pipe_size,
                    class, block_stat, length,
-                   ST_Y(ST_Centroid(route::geometry)) AS latitude,
-                   ST_X(ST_Centroid(route::geometry)) AS longitude
+                   ST_Y(ST_Centroid(geom)) AS latitude,
+                   ST_X(ST_Centroid(geom)) AS longitude
             FROM waste_water_pipeline
+            WHERE geom IS NOT NULL
             ORDER BY pipe_id
         `);
 
@@ -153,19 +164,22 @@ router.get('/pipelines.csv', async (req, res) => {
         res.setHeader('Content-Type', 'text/csv');
         res.send(csv);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
 
 // ─── GET /api/exports/jobs.csv ────────────────────────────────────────────────
+// Assumes a table `job_logs` with columns: job_number, asset_id, asset_type, job_type,
+// description, priority, status, assigned_to, performed_by, started_at, completed_at,
+// resolution_hours, suburb_name, lat, lng. If you have a geometry column, adjust accordingly.
 router.get('/jobs.csv', async (req, res) => {
     try {
         const result = await query(`
             SELECT job_number, asset_id, asset_type, job_type, description,
                    priority, status, assigned_to, performed_by,
                    started_at, completed_at, resolution_hours, suburb_name,
-                   ST_Y(location::geometry) AS latitude,
-                   ST_X(location::geometry) AS longitude
+                   lat, lng
             FROM job_logs
             ORDER BY created_at DESC
         `);
@@ -180,7 +194,7 @@ router.get('/jobs.csv', async (req, res) => {
             r.job_number, r.asset_id, r.asset_type, r.job_type, r.description,
             r.priority, r.status, r.assigned_to, r.performed_by,
             r.started_at, r.completed_at, r.resolution_hours, r.suburb_name,
-            r.latitude, r.longitude
+            r.lat, r.lng
         ]);
 
         const csv = [headers, ...rows]
@@ -191,14 +205,27 @@ router.get('/jobs.csv', async (req, res) => {
         res.setHeader('Content-Type', 'text/csv');
         res.send(csv);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
 
 // ─── GET /api/exports/complaints.geojson ──────────────────────────────────────
+// Optional: only if you have a `daily_complaints` table. If not, you can remove or comment out.
 router.get('/complaints.geojson', async (req, res) => {
     const { date } = req.query;
     try {
+        // Check if the table exists first – if not, return a 404.
+        const tableCheck = await query(`
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'daily_complaints'
+            );
+        `);
+        if (!tableCheck.rows[0].exists) {
+            return res.status(404).json({ error: 'Complaints table not found' });
+        }
+
         const result = await query(`
             SELECT ST_AsGeoJSON(location)::json AS geometry,
                    ST_AsGeoJSON(buffer_zone)::json AS buffer_geometry,
@@ -230,12 +257,9 @@ router.get('/complaints.geojson', async (req, res) => {
         res.setHeader('Content-Type', 'application/geo+json');
         res.json(geojson);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ error: err.message });
     }
 });
-
-function today() {
-    return new Date().toISOString().slice(0, 10);
-}
 
 module.exports = router;
